@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PushPin</title>
+	<script type="text/javascript" charset="utf-8" src="js/jquery.js"></script>
+	<script type="text/javascript" charset="utf-8" src="js/jquery-mob.js"></script>
+    <script type="text/javascript" charset="utf-8" src="cordova.js"></script>
+    <script type="text/javascript" charset="utf-8" src="phonegap.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/index.css" />
+  </head>
+  <body>
+	  
+    <p id="name">1</p><br>
+    
+ <!--   <p id="bearing">2</p><br> -->
+	<img id="arrow" src="img/arrow.png" style="width:80vmin;height:80vmin">
+    <p id="dist">Getting Location</p><br>
+<!--    <p id="debug">4</p> -->
+    <div id="button" onclick="setaim()">Set Target</div>
+  </body>
+  <script type="text/javascript" charset="utf-8">
+	var target = false;
+	var lock = false;
+
+    var acc;
+    var currentheading = 180;
+    var watchID = null;
+    var targetname;
+    var targetlon;
+    var targetlat;
+	var currentlon;
+	var currentlat;
+	var radconv = (180 / Math.PI);
+    document.addEventListener("deviceready", onDeviceReady, false);
+	function startWatch() {
+
+        var options = { frequency: 1000 };
+
+        watchID = navigator.compass.watchHeading(onSuccess2, onError2, options);
+    }
+
+
+    function onSuccess2(heading) {
+        currentheading = heading.magneticHeading;
+    }
+
+    function onDeviceReady() {
+		$.mobile.loadingMessage = false;
+		$.mobile.loading().hide();
+        // Throw an error if no update is received every 30 seconds
+		startWatch();
+        var options2 = { timeout: 30000 };
+		if(window.localStorage.getItem("targetexist") != null){
+		targetlon = window.localStorage.getItem("targetlon");
+		targetlat = window.localStorage.getItem("targetlat");
+		targetname = window.localStorage.getItem("targetname");
+		target = true
+		document.getElementById('name').innerHTML=targetname;
+	}else{
+		document.getElementById('name').innerHTML='No target';
+		$("#arrow").hide();
+		$("#dist").hide();
+	}
+        watchID = navigator.geolocation.watchPosition(onSuccess, onError, options2);
+    }
+
+    // onSuccess Geolocation
+    //
+    function onSuccess(position) {
+		lock = true;
+       // var element = document.getElementById('geolocation');
+       // element.innerHTML = 'Latitude: '  + position.coords.latitude      + '<br />' +
+       //                     'Longitude: ' + position.coords.longitude     + '<br />' +
+       //                     '<hr />'      + element.innerHTML;
+    currentlat = position.coords.latitude;
+    currentlon = position.coords.longitude;
+    acc = position.coords.accuracy;
+    //document.getElementById('debug').innerHTML=currentlat + " </br> "+ currentlon;
+    var R = 6371; // km
+	var dLat = (targetlat-currentlat)/radconv;
+	var dLon = (targetlon-currentlon)/radconv;
+	var lat1 = (currentlat)/radconv;
+	var lat2 = (targetlat)/radconv;
+
+	var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2); 
+	var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+	var d = R * c;
+	if(!isNaN(d * 1000)){
+	document.getElementById('dist').innerHTML=Math.round(d * 1000) + " m";
+}else{
+	document.getElementById('dist').innerHTML="---m"
+
+}
+	var startLat = (currentlat)/radconv;
+	var startLong = (currentlon)/radconv;
+	var endLat = (targetlat)/radconv;
+	var endLong = (targetlon)/radconv;
+	
+	var dLong = endLong - startLong;
+	
+	var dPhi = Math.log(Math.tan(endLat/2.0+Math.PI/4.0)/Math.tan(startLat/2.0+Math.PI/4.0));
+	if(Math.abs(dLong) > Math.PI){
+		if(dLong > 0.0){
+			dLong = -(2.0 * Math.PI - dLong);
+		}else{
+			dLong = (2.0 * Math.PI + dLong);
+		}
+	}
+	var bearing = (((Math.atan2(dLong, dPhi)) * radconv) + 360.0) % 360.0;
+
+	//document.getElementById('bearing').innerHTML=bearing + " *" + " ( " + ((bearing - currentheading) + 360.0) % 360.0 + " *)";
+	$("#arrow").css('-webkit-transform','rotate(' + (((bearing - currentheading) + 360.0) % 360.0) + 'deg)');
+}
+
+
+	function setaim(){
+		if (lock){
+			if(confirm("The current accuracy is: \n " + Math.round(acc) + " m \n Is this accurate enough?")){
+			targetname = prompt("Please enter target name","Target");
+			if (targetname != null && targetname != ''){
+			window.localStorage.setItem("targetexist", "1.0.0");
+			window.localStorage.setItem("targetlon", currentlon);
+			window.localStorage.setItem("targetlat", currentlat);
+			window.localStorage.setItem("targetname", targetname);
+			targetlon = window.localStorage.getItem("targetlon");
+			targetlat = window.localStorage.getItem("targetlat");
+			target = true;
+			document.getElementById('name').innerHTML=targetname;
+			$("#arrow").show();
+			$("#dist").show();
+			}
+			}
+			}else{
+			alert("Please wait for position fix");
+			}
+		}
+	function onError(error) {
+        alert('code: '    + error.code    + '\n' +
+              'message: ' + error.message + '\n');
+    }
+   function onError2() {
+        alert('onError!');
+}
+
+</script>
+</html>
